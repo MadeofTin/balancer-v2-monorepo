@@ -14,7 +14,7 @@ describe('StablePool', function () {
   context('with no previous deploy', () => {
     const itDeploysFactory = (force: boolean) => {
       it('deploys a stable pool factory', async () => {
-        await task.run(force);
+        await task.run({ force });
 
         const output = task.output();
         expect(output.factory).not.to.be.null;
@@ -51,7 +51,7 @@ describe('StablePool', function () {
       const force = true;
 
       it('re-deploys the stable pool factory', async () => {
-        await task.run(force);
+        await task.run({ force });
 
         const output = task.output();
         expect(output.factory).not.to.be.equal(previousDeploy.factory);
@@ -63,7 +63,7 @@ describe('StablePool', function () {
       const force = false;
 
       it('does not re-deploys the stable pool factory', async () => {
-        await task.run(force);
+        await task.run({ force });
 
         const output = task.output();
         expect(output.factory).to.be.equal(previousDeploy.factory);

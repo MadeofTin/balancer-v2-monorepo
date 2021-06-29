@@ -7,7 +7,18 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import logger from './logger';
 import Verifier from './verifier';
 import { deploy, instanceAt } from './contracts';
-import { Artifact, Input, Network, NETWORKS, Output, Param, RawInput, RawInputKeyValue, RawOutput } from './types';
+
+import {
+  NETWORKS,
+  Network,
+  Artifact,
+  Input,
+  Output,
+  Param,
+  RawInputKeyValue,
+  RawOutput,
+  TaskRunOptions,
+} from './types';
 
 const TASKS_DIRECTORY = path.resolve(__dirname, '../tasks');
 
@@ -43,6 +54,20 @@ export default class Task {
     this._network = name;
   }
 
+  async instanceAt(name: string, address: string): Promise<Contract> {
+    return instanceAt(this.artifact(name), address);
+  }
+
+  async inputInstance(artifactName: string, inputName: string): Promise<Contract> {
+    const rawInput = this.rawInput();
+    const input = rawInput[inputName];
+    if (!this._isTask(input)) throw Error(`Cannot access to non-task input ${inputName}`);
+    const task = input as Task;
+    task.network = this.network;
+    const address = this._parseRawInput(rawInput)[inputName];
+    return task.instanceAt(artifactName, address);
+  }
+
   async deploy(name: string, args: Array<Param> = [], from?: SignerWithAddress): Promise<Contract> {
     const instance = await deploy(this.artifact(name), args, from);
     logger.success(`Deployed ${name} at ${instance.address}`);
@@ -50,19 +75,19 @@ export default class Task {
   }
 
   async verify(name: string, address: string, constructorArguments: unknown): Promise<void> {
-    if (!this._verifier) return logger.warn('Skipping contract verification, no verifier defined');
-    const url = await this._verifier.call(this, name, address, constructorArguments);
-    logger.success(`Verified contract ${name} at ${url}`);
+    try {
+      if (!this._verifier) return logger.warn('Skipping contract verification, no verifier defined');
+      const url = await this._verifier.call(this, name, address, constructorArguments);
+      logger.success(`Verified contract ${name} at ${url}`);
+    } catch (error) {
+      logger.error(`Failed trying to verify ${name} at ${address}: ${error}`);
+    }
   }
 
-  async instanceAt(name: string, address: string): Promise<Contract> {
-    return instanceAt(this.artifact(name), address);
-  }
-
-  async run(force = false, verify = false): Promise<void> {
+  async run(options: TaskRunOptions = {}): Promise<void> {
     const taskPath = this._fileAt(this.dir(), 'index.ts');
     const task = require(taskPath).default;
-    await task(this, force, verify);
+    await task(this, options);
   }
 
   dir(): string {
@@ -85,9 +110,17 @@ export default class Task {
     return builds[sourceName][contractName];
   }
 
-  input(): Input {
+  rawInput(): RawInputKeyValue {
     const taskInputPath = this._fileAt(this.dir(), 'input.ts');
-    return this._parseRawInput(require(taskInputPath).default);
+    const rawInput = require(taskInputPath).default;
+    const globalInput = { ...rawInput };
+    NETWORKS.forEach((network) => delete globalInput[network]);
+    const networkInput = rawInput[this.network] || {};
+    return { ...globalInput, ...networkInput };
+  }
+
+  input(): Input {
+    return this._parseRawInput(this.rawInput());
   }
 
   output({ ensure = true, network }: { ensure?: boolean; network?: Network } = {}): Output {
@@ -114,33 +147,15 @@ export default class Task {
     fs.unlinkSync(taskOutputFile);
   }
 
-  private _parseRawInput(rawInput: RawInput): Input {
-    const rawInputWithoutNetwork = { ...rawInput };
-    NETWORKS.forEach((network) => delete rawInputWithoutNetwork[network]);
-    const inputWithoutNetwork = this._parseRawInputKeyValue(rawInputWithoutNetwork as RawInputKeyValue);
-    const networkInput = rawInput[this.network]
-      ? this._parseRawInputKeyValue(rawInput[this.network] as RawInputKeyValue)
-      : {};
-
-    Object.keys(networkInput).forEach((key) => {
-      if (Object.keys(rawInputWithoutNetwork).includes(key)) {
-        throw Error(`Duplicated key "${key}" in network ${this.network} and top-level input`);
-      }
-    });
-
-    return { ...inputWithoutNetwork, ...networkInput };
-  }
-
-  private _parseRawInputKeyValue(rawInput: RawInputKeyValue): Input {
+  private _parseRawInput(rawInput: RawInputKeyValue): Input {
     return Object.keys(rawInput).reduce((input: Input, key: Network | string) => {
       const item = rawInput[key];
       if (Array.isArray(item)) input[key] = item;
       else if (BigNumber.isBigNumber(item)) input[key] = item;
       else if (typeof item !== 'object') input[key] = item;
       else {
-        const isTask = item.constructor.name == 'Task';
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const output: Output | any = isTask ? (item as Task).output({ network: this.network }) : item;
+        const output: Output | any = this._isTask(item) ? (item as Task).output({ network: this.network }) : item;
         input[key] = output[key] ? output[key] : output;
       }
       return input;
@@ -183,5 +198,10 @@ export default class Task {
 
   private _existsDir(dirPath: string): boolean {
     return fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory();
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _isTask(object: any): boolean {
+    return object.constructor.name == 'Task';
   }
 }
