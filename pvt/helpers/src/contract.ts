@@ -20,6 +20,7 @@ export type ContractDeploymentParams = {
 // For example, to deploy Vault.sol from the package that holds its artifacts, use `deploy('Vault')`. To deploy it from
 // a different package, use `deploy('v2-vault/Vault')`, assuming the Vault's package is @balancer-labs/v2-vault.
 export async function deploy(contract: string, { from, args }: ContractDeploymentParams = {}): Promise<Contract> {
+  console.log(contract)
   if (!args) args = [];
   if (!from) from = (await ethers.getSigners())[0];
 
@@ -46,7 +47,7 @@ export async function getArtifact(contract: string): Promise<Artifact> {
     const packagePath = path.dirname(require.resolve(`${packageName}/package.json`));
     artifactsPath = `${packagePath}/artifacts`;
   }
-
+  console.log(artifactsPath)
   const artifacts = new Artifacts(artifactsPath);
   return artifacts.readArtifact(contract.split('/').slice(-1)[0]);
 }

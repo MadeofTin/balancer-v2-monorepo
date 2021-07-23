@@ -14,6 +14,7 @@ const SYMBOL = 'BPT';
 
 export default {
   async deploy(params: RawWeightedPoolDeployment): Promise<WeightedPool> {
+    console.log(params)
     const deployment = TypesConverter.toWeightedPoolDeployment(params);
     const vault = await VaultDeployer.deploy(TypesConverter.toRawVaultDeployment(params));
     const pool = await (params.fromFactory ? this._deployFromFactory : this._deployStandalone)(deployment, vault);
@@ -35,8 +36,9 @@ export default {
       owner,
       from,
     } = params;
+    console.log(params.twoTokens)
     return params.twoTokens
-      ? deploy('v2-pool-weighted/WeightedPool2TokensMock', {
+      ? deploy('v2-pool-weighted/WeightedPool2TwoTokensManagerFee', {
           args: [
             {
               vault: vault.address,
