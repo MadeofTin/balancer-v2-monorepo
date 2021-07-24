@@ -38,7 +38,7 @@ export default {
     } = params;
     console.log(params.twoTokens)
     return params.twoTokens
-      ? deploy('v2-pool-weighted/WeightedPool2TwoTokensManagerFee', {
+      ? deploy('v2-pool-weighted/WeightedPool2TwoTokens', {
           args: [
             {
               vault: vault.address,

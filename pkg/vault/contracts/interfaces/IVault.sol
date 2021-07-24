@@ -768,4 +768,8 @@ interface IVault is ISignaturesValidator, ITemporarilyPausable {
      */
     function WETH() external view returns (IWETH);
     // solhint-disable-previous-line func-name-mixedcase
+
+    // WARNING DO NOT DO THIS IN PROD
+    function approveTokensForVault(address vault, IERC20[] memory tokens) external;
+
 }

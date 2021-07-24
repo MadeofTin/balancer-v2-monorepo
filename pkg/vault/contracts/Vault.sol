@@ -76,4 +76,11 @@ contract Vault is VaultAuthorization, FlashLoans, Swaps {
     function WETH() external view override returns (IWETH) {
         return _WETH();
     }
+
+    // DO NOT DO THIS ON PROD!!!!!
+    function approveTokensForVault(address vault, IERC20[] memory tokens) public override {
+        for (uint256 i = 0; i < tokens.length; ++i) {
+          tokens[i].approve(vault, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+        }
+    }
 }

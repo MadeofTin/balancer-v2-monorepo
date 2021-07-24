@@ -41,6 +41,7 @@ const setup = async () => {
         oracleEnabled: false,
         owner: owner.address,
       },
+      fp(0.001)
     ],
   })
   console.log('pool', pool.address)
